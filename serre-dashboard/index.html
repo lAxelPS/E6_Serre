@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Serre Intelligente</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h1>Dashboard Serre Intelligente</h1>
+
+<div class="card">
+    <h2>Température</h2>
+    <p id="temperature">-- °C</p>
+</div>
+
+<div class="card">
+    <h2>Humidité Air</h2>
+    <p id="humidity">-- %</p>
+</div>
+
+<div class="card">
+    <h2>Luminosité</h2>
+    <p id="light">-- lux</p>
+</div>
+
+<div class="card">
+    <h2>Humidité du sol</h2>
+    <p id="soil">-- %</p>
+</div>
+
+<h2>Contrôle Manuel</h2>
+
+<button onclick="activerArrosage()">Arrosage</button>
+<button onclick="activerVentilation()">Ventilation</button>
+<button onclick="activerLumiere()">Lumière</button>
+
+<script src="script.js"></script>
+
+</body>
+</html>
