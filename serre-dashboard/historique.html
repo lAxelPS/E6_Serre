@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Historique</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h1>Historique Température</h1>
+
+<canvas id="graph"></canvas>
+
+<script>
+
+const ctx = document.getElementById('graph')
+
+new Chart(ctx, {
+type: 'line',
+data: {
+labels: ['10h','11h','12h','13h','14h'],
+datasets: [{
+label: 'Température',
+data: [22,23,24,24,25]
+}]
+}
+})
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+<h2>Connexion</h2>
+
+<input type="text" placeholder="Utilisateur" id="user">
+<input type="password" placeholder="Mot de passe" id="pass">
+
+<button onclick="login()">Connexion</button>
+
+<script>
+
+function login(){
+
+let user = document.getElementById("user").value
+let pass = document.getElementById("pass").value
+
+if(user=="admin" && pass=="admin123"){
+    window.location="index.html"
+}
+else{
+    alert("Identifiants incorrects")
+}
+
+}
+
+</script>
