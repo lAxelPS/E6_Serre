@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIC — Dashboard Capteurs</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="icon">🌿</span>
+        <h1>SIC</h1>
+        <p>SERRE INTELLIGENTE CONNECTÉE</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Navigation</div>
+        <a class="nav-item active" href="E6Dashboard.html"><span class="ni">⬡</span> Dashboard</a>
+        <a class="nav-item" href="E6historique.html"><span class="ni">◈</span> Historique</a>
+        <a class="nav-item" href="E6actionneurs.html"><span class="ni">⚙️</span> Actionneurs</a>
+      </nav>
+      <div class="sidebar-status">
+        <div class="status-dot"><div class="dot"></div><span>MQTT connecté</span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-title">Tableau de bord Capteurs</div>
+        <div class="topbar-right">
+          <div class="topbar-time" id="clock">--:--:--</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <section>
+          <div class="section-title">Capteurs en temps réel</div>
+          <div class="cards-grid">
+            <div class="sensor-card" id="card-temperature">
+              <div class="card-header"><div class="card-label">🌡️ Température</div><span class="card-badge" id="badge-temp">normal</span></div>
+              <div class="card-value" id="val-temp">--<span class="unit">°C</span></div>
+              <div class="card-bar"><div class="card-bar-fill" id="bar-temp"></div></div>
+            </div>
+            <div class="sensor-card" id="card-humidite_air">
+              <div class="card-header"><div class="card-label">💧 Humidité Air</div><span class="card-badge" id="badge-hum">normal</span></div>
+              <div class="card-value" id="val-hum">--<span class="unit">%</span></div>
+              <div class="card-bar"><div class="card-bar-fill" id="bar-hum"></div></div>
+            </div>
+            <div class="sensor-card" id="card-luminosite">
+              <div class="card-header"><div class="card-label">☀️ Luminosité</div><span class="card-badge" id="badge-lux">normal</span></div>
+              <div class="card-value" id="val-lux">--<span class="unit">lux</span></div>
+              <div class="card-bar"><div class="card-bar-fill" id="bar-lux"></div></div>
+            </div>
+            <div class="sensor-card" id="card-humidite_sol">
+              <div class="card-header"><div class="card-label">🌱 Humidité Sol</div><span class="card-badge" id="badge-sol">normal</span></div>
+              <div class="card-value" id="val-sol">--<span class="unit">%</span></div>
+              <div class="card-bar"><div class="card-bar-fill" id="bar-sol"></div></div>
+            </div>
+          </div>
+
+          <div class="section-title">Alertes actives</div>
+          <div class="alertes-box" id="alertes-list">
+            <div class="no-alerte">✔ Aucune alerte active</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="dashboard.js"></script>
+</body>
+</html>

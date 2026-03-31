@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>SIC — Contrôle Actionneurs</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Syne:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo"><h1>SIC</h1><p>ACTIONNEURS</p></div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="E6Dashboard.html"><span class="ni">⬡</span> Dashboard</a>
+        <a class="nav-item" href="E6historique.html"><span class="ni">◈</span> Historique</a>
+        <a class="nav-item active" href="E6actionneurs.html"><span class="ni">⚙️</span> Actionneurs</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <div class="topbar"><div class="topbar-title">Contrôle du Système</div><div id="clock"></div></div>
+      <div class="content">
+        <div class="mode-bar">
+          <button class="mode-btn active" id="btn-manuel">Manuel</button>
+          <button class="mode-btn" id="btn-auto">Automatique</button>
+        </div>
+
+        <div class="actionneurs-grid">
+          <div class="actionneur-card" id="card-pompe">
+            <div class="act-icon">💧</div><div class="act-name">Arrosage</div>
+            <div class="act-state" id="state-pompe">ÉTEINT</div>
+            <button class="toggle-btn" id="btn-pompe">ACTIVER</button>
+          </div>
+          <div class="actionneur-card" id="card-ventilo">
+            <div class="act-icon">🌀</div><div class="act-name">Ventilation</div>
+            <div class="act-state" id="state-ventilo">ÉTEINT</div>
+            <button class="toggle-btn" id="btn-ventilo">ACTIVER</button>
+          </div>
+          <div class="actionneur-card" id="card-led">
+            <div class="act-icon">💡</div><div class="act-name">Éclairage LED</div>
+            <div class="act-state" id="state-led">ÉTEINT</div>
+            <button class="toggle-btn" id="btn-led">ACTIVER</button>
+          </div>
+        </div>
+
+        <div class="section-title">Journal des commandes récentes</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Actionneur</th><th>Action</th><th>Source</th><th>Heure</th></tr></thead>
+            <tbody id="commandes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="dashboard.js"></script>
+</body>
+</html>
