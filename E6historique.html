@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIC — Historique</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="icon">🌿</span>
+        <h1>SIC</h1>
+        <p>SERRE INTELLIGENTE CONNECTÉE</p>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-label">Navigation</div>
+        <a class="nav-item" href="E6Dashboard.html">
+          <span class="ni">⬡</span> Dashboard
+        </a>
+        <a class="nav-item active" href="E6historique.html">
+          <span class="ni">◈</span> Historique
+        </a>
+        <a class="nav-item" href="E6actionneurs.html">
+          <span class="ni">⚙️</span> Actionneurs
+        </a>
+      </nav>
+
+      <div class="sidebar-status">
+        <div class="status-dot">
+          <div class="dot" id="db-dot"></div>
+          <span id="db-label">Base de données OK</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-title">Historique des mesures</div>
+        <div class="topbar-right">
+          <div class="topbar-time" id="clock">--:--:--</div>
+          <button class="topbar-refresh" id="refresh-history" type="button">↻ Recharger l'historique</button>
+        </div>
+      </div>
+
+      <div class="history-note">
+        Cette page charge les mesures <strong>une seule fois à l'ouverture</strong> puis reste figée.
+        Elle récupère de nouvelles données uniquement quand tu reviens sur la page ou quand tu cliques sur le bouton de rechargement.
+      </div>
+
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="tous" type="button">Tous</button>
+        <button class="filter-btn" data-filter="temperature" type="button">🌡️ Température</button>
+        <button class="filter-btn" data-filter="humidite_air" type="button">💧 Humidité air</button>
+        <button class="filter-btn" data-filter="luminosite" type="button">☀️ Luminosité</button>
+        <button class="filter-btn" data-filter="humidite_sol" type="button">🌱 Humidité sol</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Capteur</th>
+              <th>Valeur</th>
+              <th>Statut</th>
+              <th>Horodatage</th>
+            </tr>
+          </thead>
+          <tbody id="historique-body"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="historique.js"></script>
+</body>
+</html>
