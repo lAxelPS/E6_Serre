@@ -4,21 +4,27 @@ const state = {
 };
 
 const labels = {
-  temperature: '🌡️ Température',
+  temperature:  '🌡️ Température',
   humidite_air: '💧 Humidité air',
-  luminosite: '☀️ Luminosité',
+  luminosite:   '☀️ Luminosité',
   humidite_sol: '🌱 Humidité sol',
 };
 
-// ── URL du backend Flask ───────────────────────────────────────────────────
-// Si ton HTML est ouvert directement depuis le disque (file://), garde localhost.
-// Si ton HTML est servi par Flask lui-même, tu peux mettre '/api/historique'.
-const API_URL = 'http://localhost:5001/api/historique';
-const STATUS_URL = 'http://localhost:5001/api/statut';
+// ── URL du backend Flask (client_sub.py, port 5000) ───────────────────────
+const API_URL    = 'http://localhost:5000/api/historique';
+const STATUS_URL = 'http://localhost:5000/api/statut';
 
 // ── Formatage valeur ──────────────────────────────────────────────────────
 function fmtVal(type, val) {
   return type === 'luminosite' ? Math.round(Number(val)) : Number(val).toFixed(1);
+}
+
+// ── Formatte la date SQLite en français ───────────────────────────────────
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts.replace(' ', 'T'));
+  if (isNaN(d)) return ts;
+  return d.toLocaleString('fr-FR');
 }
 
 // ── Rendu du tableau ──────────────────────────────────────────────────────
@@ -31,8 +37,7 @@ function renderHistorique() {
     document.getElementById('historique-body').innerHTML = `
       <tr>
         <td colspan="5" style="text-align:center;color:var(--text-dim);">Aucune mesure disponible.</td>
-      </tr>
-    `;
+      </tr>`;
     return;
   }
 
@@ -47,14 +52,6 @@ function renderHistorique() {
   `).join('');
 }
 
-// ── Formatte la date reçue depuis SQLite en français ─────────────────────
-function formatDate(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts.replace(' ', 'T'));   // "2025-07-01 14:32:00" → ISO
-  if (isNaN(d)) return ts;                    // déjà formaté ou inconnu
-  return d.toLocaleString('fr-FR');
-}
-
 // ── Filtre ────────────────────────────────────────────────────────────────
 function setFilter(filter, button) {
   state.filter = filter;
@@ -65,34 +62,30 @@ function setFilter(filter, button) {
 
 // ── Indicateur DB (sidebar) ───────────────────────────────────────────────
 async function checkDbStatus() {
+  const dot   = document.getElementById('db-dot');
+  const label = document.getElementById('db-label');
   try {
-    const res = await fetch(STATUS_URL);
+    const res  = await fetch(STATUS_URL);
     const data = await res.json();
-    const dot   = document.getElementById('db-dot');
-    const label = document.getElementById('db-label');
     if (data.ok) {
-      dot.style.background   = 'var(--green, #4ade80)';
-      label.textContent      = `Base de données OK (${data.nb_mesures} mesures)`;
+      if (dot)   dot.style.background = 'var(--green, #4ade80)';
+      if (label) label.textContent    = `Base de données OK (${data.nb_mesures} mesures)`;
     } else {
-      dot.style.background   = 'var(--red, #f87171)';
-      label.textContent      = 'Erreur base de données';
+      if (dot)   dot.style.background = 'var(--red, #f87171)';
+      if (label) label.textContent    = 'Erreur base de données';
     }
   } catch {
-    const dot   = document.getElementById('db-dot');
-    const label = document.getElementById('db-label');
-    dot.style.background     = 'var(--red, #f87171)';
-    label.textContent        = 'Serveur inaccessible';
+    if (dot)   dot.style.background = 'var(--red, #f87171)';
+    if (label) label.textContent    = 'Serveur inaccessible';
   }
 }
 
-// ── Chargement depuis l'API Flask/SQLite ──────────────────────────────────
+// ── Chargement depuis l'API ───────────────────────────────────────────────
 async function loadHistorique() {
-  // Affiche un indicateur de chargement
   document.getElementById('historique-body').innerHTML = `
     <tr>
       <td colspan="5" style="text-align:center;color:var(--text-dim);">⏳ Chargement…</td>
-    </tr>
-  `;
+    </tr>`;
 
   try {
     const response = await fetch(API_URL);
@@ -103,8 +96,11 @@ async function loadHistorique() {
 
     const data = await response.json();
 
-    // data est un tableau d'objets : { id, type, label, val, unite, statut, ts }
-    state.historique = data;
+    if (data.erreur) {
+      throw new Error(data.erreur);
+    }
+
+    state.historique = data;   // TOUTES les lignes de la table mesures
     renderHistorique();
     await checkDbStatus();
 
@@ -113,11 +109,9 @@ async function loadHistorique() {
       <tr>
         <td colspan="5" style="text-align:center;color:var(--red,#f87171);">
           ❌ Erreur de chargement : ${error.message}<br>
-          <small>Vérifie que le serveur Python tourne sur <code>localhost:5001</code></small>
+          <small>Vérifie que <code>client_sub.py</code> tourne sur <code>localhost:5000</code></small>
         </td>
-      </tr>
-    `;
-    // Met à jour l'indicateur DB en rouge aussi
+      </tr>`;
     const dot   = document.getElementById('db-dot');
     const label = document.getElementById('db-label');
     if (dot)   dot.style.background = 'var(--red, #f87171)';
