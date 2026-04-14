@@ -7,22 +7,11 @@ const state = {
   },
   acteurs: { pompe: false, ventilo: false, led: false },
   mode: 'manuel',
-  commandes: [],
-  alertes: [],
+  commandes: [], // Historique vide au démarrage
+  alertes: [],   // Alertes vides au démarrage
 };
 
-// Initialisation des données démo (pour les historiques en attendant une API complète)
-(function initDemo() {
-  const now = Date.now();
-  state.commandes = [
-    { nom:'Arrosage', action:'OFF', source:'automatique', ts: new Date(now - 3300000).toLocaleString('fr-FR') },
-    { nom:'Ventilation', action:'ON', source:'manuel', ts: new Date(now - 1800000).toLocaleString('fr-FR') },
-  ];
-  state.alertes = [
-    { capteur:'🌡️ Température', niveau:'avertissement', message:'Température > 30°C', ts:'il y a 12 min' },
-  ];
-})();
-
+// 2. Fonctions Capteurs & Dashboard
 function getStatut(type, val) {
   const s = state.sensors[type];
   if (val < s.min || val > s.max) return 'critique';
@@ -40,7 +29,7 @@ function updateDashboard() {
 
   Object.entries(map).forEach(([type, ids]) => {
     const el = document.getElementById(ids.val);
-    if (!el) return; // Si l'élément n'existe pas sur la page actuelle, on passe au suivant
+    if (!el) return;
 
     const s = state.sensors[type];
     const statut = getStatut(type, s.value);
@@ -71,101 +60,42 @@ function renderAlertes() {
   `).join('');
 }
 
-// ─── CONNEXION AVEC PYTHON (FLASK) ───────────────────────────
+// 3. Connexion avec Python (Flask / API)
 async function refreshData() {
   try {
-    // ⚠️ Remplace 'localhost' par l'IP de ton Raspberry si tu n'es pas sur la même machine
     const response = await fetch('http://localhost:5000/api/data');
-    
     if (!response.ok) throw new Error("Erreur réseau ou serveur injoignable");
     
     const data = await response.json();
 
-    // Mise à jour du state avec les clés reçues du JSON de l'ESP32
     state.sensors.temperature.value  = data.temperature;
     state.sensors.humidite_air.value = data.humidity;
     state.sensors.luminosite.value   = data.lux;
     state.sensors.humidite_sol.value = data.soil;
 
-    // Rafraîchir l'interface
     updateDashboard();
 
-    // Optionnel : Mettre à jour la pastille MQTT (si elle existe sur la page)
     const mqttLabel = document.getElementById('mqtt-label');
     if (mqttLabel) mqttLabel.textContent = "MQTT connecté (En direct)";
 
   } catch (error) {
     console.error("Impossible de récupérer les données :", error);
-    // Optionnel : Indiquer visuellement que la connexion est perdue
     const mqttLabel = document.getElementById('mqtt-label');
     if (mqttLabel) mqttLabel.textContent = "Erreur de connexion serveur";
   }
 }
-// ─────────────────────────────────────────────────────────────
 
-function syncActeurCard(id) {
-  const card = document.getElementById(`card-${id}`);
-  if (!card) return;
-  const on = state.acteurs[id];
-  card.className = `actionneur-card ${on ? 'on' : ''}`;
-  document.getElementById(`state-${id}`).textContent = on ? 'ALLUMÉ' : 'ÉTEINT';
-  const btn = document.getElementById(`btn-${id}`);
-  btn.textContent = on ? 'DÉSACTIVER' : 'ACTIVER';
-  btn.className = `toggle-btn ${on ? 'on' : ''}`;
-}
-
-function renderCommandes() {
-  const body = document.getElementById('commandes-body');
-  if (!body) return;
-  body.innerHTML = state.commandes.slice(0, 10).map(c => `
-    <tr><td>${c.nom}</td><td style="color:${c.action==='ON'?'var(--green)':'var(--red)'}">${c.action}</td>
-    <td><span class="badge normal">${c.source}</span></td><td>${c.ts}</td></tr>
-  `).join('');
-}
-
-function toggleActeur(id) {
-  if (state.mode === 'auto') return;
-  state.acteurs[id] = !state.acteurs[id];
-  syncActeurCard(id);
-  state.commandes.unshift({ nom: id, action: state.acteurs[id]?'ON':'OFF', source: 'manuel', ts: new Date().toLocaleTimeString() });
-  renderCommandes();
-}
-
-function setMode(m) {
-  state.mode = m;
-  const btnM = document.getElementById('btn-manuel');
-  const btnA = document.getElementById('btn-auto');
-  if (btnM) btnM.className = `mode-btn ${m === 'manuel' ? 'active' : ''}`;
-  if (btnA) btnA.className = `mode-btn ${m === 'auto' ? 'active' : ''}`;
-}
-
-// Initialisation des événements
+// 4. Initialisation principale
 document.addEventListener('DOMContentLoaded', () => {
-  // Rafraîchissement manuel
   const btnRefresh = document.getElementById('refresh-dashboard');
   if (btnRefresh) btnRefresh.addEventListener('click', () => refreshData());
-
-  ['pompe', 'ventilo', 'led'].forEach(id => {
-    const btn = document.getElementById(`btn-${id}`);
-    if (btn) btn.addEventListener('click', () => toggleActeur(id));
-  });
-
-  const bM = document.getElementById('btn-manuel');
-  if (bM) bM.addEventListener('click', () => setMode('manuel'));
-  const bA = document.getElementById('btn-auto');
-  if (bA) bA.addEventListener('click', () => setMode('auto'));
 
   setInterval(() => {
     const clock = document.getElementById('clock');
     if (clock) clock.textContent = new Date().toLocaleTimeString('fr-FR');
   }, 1000);
 
-  // Appels initiaux
   updateDashboard();
-  renderCommandes();
-  ['pompe', 'ventilo', 'led'].forEach(syncActeurCard);
-
-  // Lancement de la récupération automatique des données (toutes les 5 secondes)
   refreshData();
-  setInterval(refreshData, 5000);
+  setInterval(refreshData, 5000); // Rafraîchissement automatique
 });
