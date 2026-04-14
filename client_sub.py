@@ -3,7 +3,7 @@ import sqlite3
 import time
 import json
 from datetime import datetime
-from flask import Flask, Response
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
 # ─── CONFIGURATION ───────────────────────────────────────────
@@ -24,6 +24,7 @@ def api_data():
 
 # ─── CONNEXION SQLITE ─────────────────────────────────────────
 conn   = sqlite3.connect(DB_PATH, check_same_thread=False)
+conn.row_factory = sqlite3.Row   # accès aux colonnes par nom
 cursor = conn.cursor()
 
 def init_db():
@@ -77,7 +78,6 @@ def init_db():
             "((SELECT id FROM capteurs WHERE type=?), ?, ?, ?)",
             (type_, nom, type_, unite)
         )
-        # Si aucune ligne n'existe encore pour ce type, on insère
         cursor.execute(
             "INSERT INTO capteurs (nom, type, unite) "
             "SELECT ?,?,? WHERE NOT EXISTS (SELECT 1 FROM capteurs WHERE type=?)",
@@ -97,12 +97,11 @@ def get_capteur_id(type_capteur):
 
 def verifier_statut(type_capteur, valeur):
     """Retourne 'normal', 'alerte' ou 'critique' selon la valeur."""
-    #valeurs pour tomates et poivrons
     seuils = {
         "temperature" : (18.5,  26.5,  13,  35),
-        "humidite_air": (60,  80,  40,  90),
+        "humidite_air": (60,    80,    40,  90),
         "luminosite"  : (10000, 20000, 7000, 25000),
-        "humidite_sol": (70,  80,  40,  90),
+        "humidite_sol": (70,    80,    40,  90),
     }
     if type_capteur not in seuils:
         return "normal"
@@ -111,8 +110,6 @@ def verifier_statut(type_capteur, valeur):
         return "critique"
     elif valeur < mn or valeur > mx:
         return "alerte"
-    elif type_capteur=="luminosite":
-        return "normal"
     return "normal"
 
 def inserer_mesure(type_capteur, valeur):
@@ -125,13 +122,11 @@ def inserer_mesure(type_capteur, valeur):
     statut    = verifier_statut(type_capteur, valeur)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # INSERT mesure
     cursor.execute(
         "INSERT INTO mesures (capteur_id, valeur, timestamp, statut) VALUES (?, ?, ?, ?)",
         (capteur_id, valeur, timestamp, statut)
     )
 
-    # Si alerte ou critique → INSERT dans alertes
     if statut in ("alerte", "critique"):
         message = f"{type_capteur} = {valeur} — statut : {statut}"
         cursor.execute(
@@ -160,8 +155,83 @@ def afficher_dernieres_mesures():
         ORDER BY c.id
     """).fetchall()
     print("\n  📊 Dernières mesures en base :")
-    for type_, valeur, unite, statut, ts in rows:
-        print(f"    {type_:<15} {valeur:>8.1f} {unite:<5}  [{statut}]  {ts}")
+    for r in rows:
+        print(f"    {r['type']:<15} {r['valeur']:>8.1f} {r['unite']:<5}  [{r['statut']}]  {r['timestamp']}")
+
+# ─── LABELS / UNITÉS (pour l'API historique) ─────────────────
+LABELS = {
+    "temperature":  "🌡️ Température",
+    "humidite_air": "💧 Humidité air",
+    "luminosite":   "☀️ Luminosité",
+    "humidite_sol": "🌱 Humidité sol",
+}
+
+UNITES = {
+    "temperature":  "°C",
+    "humidite_air": "%",
+    "luminosite":   "lux",
+    "humidite_sol": "%",
+}
+
+# ─── ROUTES API HISTORIQUE ────────────────────────────────────
+
+@app.route('/api/historique')
+def api_historique():
+    """
+    Retourne TOUTES les lignes de la table mesures,
+    jointure avec capteurs pour avoir le type/label/unité.
+    GET /api/historique
+    GET /api/historique?type=temperature   ← filtre optionnel
+    """
+    type_filter = request.args.get("type", None)
+
+    try:
+        if type_filter:
+            rows = conn.execute("""
+                SELECT m.id, m.valeur, m.timestamp, m.statut,
+                       c.type, c.unite
+                FROM mesures m
+                JOIN capteurs c ON m.capteur_id = c.id
+                WHERE c.type = ?
+                ORDER BY m.timestamp DESC
+            """, (type_filter,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT m.id, m.valeur, m.timestamp, m.statut,
+                       c.type, c.unite
+                FROM mesures m
+                JOIN capteurs c ON m.capteur_id = c.id
+                ORDER BY m.timestamp DESC
+            """).fetchall()
+
+        result = []
+        for r in rows:
+            type_ = r["type"]
+            result.append({
+                "id":     r["id"],
+                "type":   type_,
+                "label":  LABELS.get(type_, type_),
+                "val":    r["valeur"],
+                "unite":  r["unite"] or UNITES.get(type_, ""),
+                "statut": r["statut"],
+                "ts":     r["timestamp"],
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"erreur": str(e)}), 500
+
+
+@app.route('/api/statut')
+def api_statut():
+    """Ping rapide — vérifie que le serveur et la DB répondent."""
+    try:
+        nb = conn.execute("SELECT COUNT(*) FROM mesures").fetchone()[0]
+        return jsonify({"ok": True, "nb_mesures": nb})
+    except Exception as e:
+        return jsonify({"ok": False, "erreur": str(e)}), 500
+
 
 # ─── CALLBACKS MQTT ───────────────────────────────────────────
 
@@ -181,11 +251,9 @@ def on_disconnect(client, userdata, rc):
 def callback_esp32_sensor1(client, userdata, msg):
     global latest_payload
     try:
-        # 1. On décode la chaîne reçue
         raw_data = msg.payload.decode('utf-8')
-        valeur  = json.loads(raw_data)
-        
-        # 2. Vérification de la présence des 4 données obligatoires
+        valeur   = json.loads(raw_data)
+
         required_keys = ["temperature", "humidity", "lux", "soil"]
         if not all(key in valeur for key in required_keys):
             print("⚠️ Données JSON incomplètes ignorées")
@@ -198,7 +266,6 @@ def callback_esp32_sensor1(client, userdata, msg):
         lux         = valeur["lux"]
         soil        = valeur["soil"]
 
-        # 3. Les données sont validées, on met à jour la variable pour Flask
         latest_payload = raw_data
 
         print(f"  temperature = {temperature} °C")
@@ -206,7 +273,6 @@ def callback_esp32_sensor1(client, userdata, msg):
         print(f"  lux         = {lux} lux")
         print(f"  soil        = {soil} %")
 
-        # ── Insertion en base SQLite ──
         inserer_mesure("temperature",   temperature)
         inserer_mesure("humidite_air",  humidity)
         inserer_mesure("luminosite",    lux)
@@ -240,20 +306,17 @@ flag_connected = 0
 
 client.on_connect    = on_connect
 client.on_disconnect = on_disconnect
-client.message_callback_add('esp8266/sensor1',  callback_esp32_sensor1)
-client.message_callback_add('rpi/broadcast',  callback_rpi_broadcast)
+client.message_callback_add('esp8266/sensor1', callback_esp32_sensor1)
+client.message_callback_add('rpi/broadcast',   callback_rpi_broadcast)
 
 try:
     client.connect(MQTT_BROKER, MQTT_PORT)
-    client.loop_start() # Démarre le thread MQTT en arrière-plan
+    client.loop_start()
     client_subscriptions(client)
     print("......client setup complete............")
 except Exception as e:
     print(f"❌ Erreur connexion Broker : {e}")
 
-# Lancement du serveur Web Flask
 if __name__ == '__main__':
     print("🚀 Serveur Web Flask en cours d'exécution sur le port 5000...")
-    # app.run() bloque le script ici et gère les requêtes indéfiniment. 
-    # Plus besoin de 'while True' !
     app.run(host='0.0.0.0', port=5000, debug=False)
