@@ -1,87 +1,109 @@
-// actionneurs.js - Gestion des actionneurs (Ventilateur, Pompe, LED) et Modes
+document.addEventListener("DOMContentLoaded", () => {
+    // --- 1. Gestion de l'horloge ---
+    const clockEl = document.getElementById('clock');
+    const updateClock = () => {
+        clockEl.textContent = new Date().toLocaleTimeString('fr-FR');
+    };
+    setInterval(updateClock, 1000);
+    updateClock(); // Initialisation immédiate
 
-function syncActeurCard(id) {
-  const card = document.getElementById(`card-${id}`);
-  if (!card) return;
-  const on = state.acteurs[id];
-  card.className = `actionneur-card ${on ? 'on' : ''}`;
-  
-  const stateLabel = document.getElementById(`state-${id}`);
-  if (stateLabel) stateLabel.textContent = on ? 'ALLUMÉ' : 'ÉTEINT';
-  
-  const btn = document.getElementById(`btn-${id}`);
-  if (btn) {
-    btn.textContent = on ? 'DÉSACTIVER' : 'ACTIVER';
-    btn.className = `toggle-btn ${on ? 'on' : ''}`;
-  }
-}
+    // --- 2. Récupération des éléments du DOM ---
+    const btnManuel = document.getElementById('btn-manuel');
+    const btnAuto = document.getElementById('btn-auto');
+    const logBody = document.getElementById('commandes-body');
 
-function renderCommandes() {
-  const body = document.getElementById('commandes-body');
-  if (!body) return;
-  
-  if (state.commandes.length === 0) {
-    body.innerHTML = '<tr><td colspan="4" style="text-align:center;">Aucune commande récente</td></tr>';
-    return;
-  }
+    // Configuration des actionneurs pour centraliser la gestion
+    const actionneurs = {
+        pompe: {
+            name: 'Arrosage',
+            btn: document.getElementById('btn-pompe'),
+            stateText: document.getElementById('state-pompe'),
+            isActive: false
+        },
+        ventilo: {
+            name: 'Ventilation',
+            btn: document.getElementById('btn-ventilo'),
+            stateText: document.getElementById('state-ventilo'),
+            isActive: false
+        },
+        led: {
+            name: 'Éclairage LED',
+            btn: document.getElementById('btn-led'),
+            stateText: document.getElementById('state-led'),
+            isActive: false
+        }
+    };
 
-  body.innerHTML = state.commandes.slice(0, 10).map(c => `
-    <tr>
-      <td>${c.nom}</td>
-      <td style="color:${c.action === 'ON' ? 'var(--green)' : 'var(--red)'}">${c.action}</td>
-      <td><span class="badge normal">${c.source}</span></td>
-      <td>${c.ts}</td>
-    </tr>
-  `).join('');
-}
+    let isAutoMode = false;
 
-function toggleActeur(id) {
-  if (state.mode === 'auto') {
-    console.log("Action ignorée : mode automatique activé.");
-    return;
-  }
-  
-  // Inverse l'état
-  state.acteurs[id] = !state.acteurs[id];
-  syncActeurCard(id);
-  
-  // Ajout à l'historique
-  state.commandes.unshift({ 
-    nom: id.charAt(0).toUpperCase() + id.slice(1), 
-    action: state.acteurs[id] ? 'ON' : 'OFF', 
-    source: 'manuel', 
-    ts: new Date().toLocaleTimeString('fr-FR') 
-  });
-  renderCommandes();
+    // --- 3. Fonction pour écrire dans le journal ---
+    function addLog(actionneur, action, source) {
+        const row = document.createElement('tr');
+        const time = new Date().toLocaleTimeString('fr-FR');
+        
+        row.innerHTML = `
+            <td><strong>${actionneur}</strong></td>
+            <td>${action}</td>
+            <td>${source}</td>
+            <td>${time}</td>
+        `;
+        
+        // On ajoute la nouvelle ligne tout en haut du tableau
+        logBody.insertBefore(row, logBody.firstChild);
+    }
 
-  // ⚠️ C'est ici que tu pourras ajouter ton appel réseau (MQTT/WebSockets/Fetch)
-  // pour réellement activer le ventilateur sur le Raspberry/ESP8266
-  // Exemple : sendPower(id === 'ventilo' && state.acteurs[id] ? 'FAN_ON' : 'FAN_OFF');
-}
+    // --- 4. Gestion des modes (Manuel / Auto) ---
+    function setMode(auto) {
+        if (isAutoMode === auto) return; // On ne fait rien si on est déjà dans ce mode
+        isAutoMode = auto;
 
-function setMode(m) {
-  state.mode = m;
-  const btnM = document.getElementById('btn-manuel');
-  const btnA = document.getElementById('btn-auto');
-  if (btnM) btnM.className = `mode-btn ${m === 'manuel' ? 'active' : ''}`;
-  if (btnA) btnA.className = `mode-btn ${m === 'auto' ? 'active' : ''}`;
-}
+        if (isAutoMode) {
+            // Mode Automatique
+            btnAuto.classList.add('active');
+            btnManuel.classList.remove('active');
+            
+            // Rendre les boutons incliquables
+            Object.values(actionneurs).forEach(act => act.btn.disabled = true);
+            
+            addLog('Système', 'Passage en mode Automatique', 'Interface Utilisateur');
+        } else {
+            // Mode Manuel
+            btnManuel.classList.add('active');
+            btnAuto.classList.remove('active');
+            
+            // Rendre les boutons à nouveau cliquables
+            Object.values(actionneurs).forEach(act => act.btn.disabled = false);
+            
+            addLog('Système', 'Passage en mode Manuel', 'Interface Utilisateur');
+        }
+    }
 
-// Initialisation des événements liés aux actionneurs
-document.addEventListener('DOMContentLoaded', () => {
-  // Écouteurs pour les boutons d'actionneurs
-  ['pompe', 'ventilo', 'led'].forEach(id => {
-    const btn = document.getElementById(`btn-${id}`);
-    if (btn) btn.addEventListener('click', () => toggleActeur(id));
-    syncActeurCard(id); // Synchronisation de l'affichage initial
-  });
+    // Écouteurs d'événements pour les boutons de mode
+    btnAuto.addEventListener('click', () => setMode(true));
+    btnManuel.addEventListener('click', () => setMode(false));
 
-  // Écouteurs pour les modes
-  const bM = document.getElementById('btn-manuel');
-  if (bM) bM.addEventListener('click', () => setMode('manuel'));
-  const bA = document.getElementById('btn-auto');
-  if (bA) bA.addEventListener('click', () => setMode('auto'));
+    // --- 5. Gestion des clics sur les actionneurs ---
+    function toggleActionneur(key) {
+        if (isAutoMode) return; // Sécurité supplémentaire si on est en mode auto
 
-  // Affichage initial du tableau d'historique (qui sera vide)
-  renderCommandes();
+        const act = actionneurs[key];
+        act.isActive = !act.isActive; // On inverse l'état
+
+        if (act.isActive) {
+            act.stateText.textContent = 'ALLUMÉ';
+            act.stateText.style.color = '#4ade80'; // Petite touche de couleur verte
+            act.btn.textContent = 'DÉSACTIVER';
+            addLog(act.name, 'Allumé', 'Manuel');
+        } else {
+            act.stateText.textContent = 'ÉTEINT';
+            act.stateText.style.color = ''; // Retour à la couleur par défaut
+            act.btn.textContent = 'ACTIVER';
+            addLog(act.name, 'Éteint', 'Manuel');
+        }
+    }
+
+    // Écouteurs d'événements pour les boutons des actionneurs
+    actionneurs.pompe.btn.addEventListener('click', () => toggleActionneur('pompe'));
+    actionneurs.ventilo.btn.addEventListener('click', () => toggleActionneur('ventilo'));
+    actionneurs.led.btn.addEventListener('click', () => toggleActionneur('led'));
 });

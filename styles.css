@@ -464,6 +464,12 @@
     line-height: 1.6;
   }
 
+  .toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #555; /* À adapter selon ton thème */
+}
+
   /* ── SCROLLBAR ─────────────────────────────────── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
