@@ -1,22 +1,47 @@
 const state = {
   sensors: {
-    temperature:  { value: 0, unite: '°C',  min: 13,   max: 35,    sMin: 18.5,  sMax: 26.5   },
-    humidite_air: { value: 0, unite: '%',   min: 40,  max: 90,    sMin: 60,  sMax: 80   },
-    luminosite:   { value: 0, unite: 'lux', min: 7000, max: 25000, sMin: 10000, sMax: 20000 },
-    humidite_sol: { value: 0, unite: '%',   min: 40,  max: 90,   sMin: 40,  sMax: 80   },
+    temperature:  { value: 0, unite: '°C',  min: 13,   max: 35,    sMin: 18.5,  sMax: 26.5,  label: '🌡️ Température' },
+    humidite_air: { value: 0, unite: '%',   min: 40,   max: 90,    sMin: 60,    sMax: 80,    label: '💧 Humidité Air' },
+    luminosite:   { value: 0, unite: ' lux', min: 7000, max: 25000, sMin: 10000, sMax: 20000, label: '☀️ Luminosité' },
+    humidite_sol: { value: 0, unite: '%',   min: 40,   max: 90,    sMin: 40,    sMax: 80,    label: '🌱 Humidité Sol' },
   },
-  acteurs: { pompe: false, ventilo: false, led: false },
-  mode: 'manuel',
-  commandes: [], // Historique vide au démarrage
-  alertes: [],   // Alertes vides au démarrage
+  alertes: [],
 };
 
-// 2. Fonctions Capteurs & Dashboard
+// Vérifie les seuils et retourne le statut
 function getStatut(type, val) {
   const s = state.sensors[type];
   if (val < s.min || val > s.max) return 'critique';
   if (val < s.sMin || val > s.sMax) return 'alerte';
   return 'normal';
+}
+
+// Génère la liste des alertes en fonction des valeurs actuelles
+function checkAlertes() {
+  state.alertes = []; // On vide les anciennes alertes
+  const now = new Date().toLocaleTimeString('fr-FR');
+
+  Object.entries(state.sensors).forEach(([type, s]) => {
+    const statut = getStatut(type, s.value);
+    
+    if (statut !== 'normal') {
+      let message = '';
+      const displayValue = type === 'luminosite' ? Math.round(s.value) : s.value.toFixed(1);
+      
+      if (s.value < s.min || s.value < s.sMin) {
+        message = `${s.label} trop basse (${displayValue}${s.unite})`;
+      } else {
+        message = `${s.label} trop haute (${displayValue}${s.unite})`;
+      }
+
+      state.alertes.push({
+        capteur: s.label,
+        niveau: statut === 'alerte' ? 'avertissement' : 'critique', // 'avertissement' pour matcher la classe CSS de ta démo
+        message: message,
+        ts: now
+      });
+    }
+  });
 }
 
 function updateDashboard() {
@@ -41,6 +66,8 @@ function updateDashboard() {
     document.getElementById(ids.card).className = `sensor-card ${statut === 'normal' ? '' : statut}`;
   });
 
+  // On met à jour les alertes dynamiquement à chaque refresh
+  checkAlertes();
   renderAlertes();
 }
 
@@ -60,7 +87,7 @@ function renderAlertes() {
   `).join('');
 }
 
-// 3. Connexion avec Python (Flask / API)
+// ─── CONNEXION AVEC PYTHON (FLASK) ───────────────────────────
 async function refreshData() {
   try {
     const response = await fetch('http://localhost:5000/api/data');
@@ -75,27 +102,29 @@ async function refreshData() {
 
     updateDashboard();
 
-    const mqttLabel = document.getElementById('mqtt-label');
-    if (mqttLabel) mqttLabel.textContent = "MQTT connecté (En direct)";
+    const mqttLabel = document.querySelector('.sidebar-status span');
+    if (mqttLabel) mqttLabel.textContent = "MQTT connecté";
 
   } catch (error) {
     console.error("Impossible de récupérer les données :", error);
-    const mqttLabel = document.getElementById('mqtt-label');
-    if (mqttLabel) mqttLabel.textContent = "Erreur de connexion serveur";
+    const mqttLabel = document.querySelector('.sidebar-status span');
+    if (mqttLabel) mqttLabel.textContent = "Erreur de connexion";
   }
 }
+// ─────────────────────────────────────────────────────────────
 
-// 4. Initialisation principale
+// Initialisation des événements
 document.addEventListener('DOMContentLoaded', () => {
-  const btnRefresh = document.getElementById('refresh-dashboard');
-  if (btnRefresh) btnRefresh.addEventListener('click', () => refreshData());
-
+  // Horloge
   setInterval(() => {
     const clock = document.getElementById('clock');
     if (clock) clock.textContent = new Date().toLocaleTimeString('fr-FR');
   }, 1000);
 
+  // Appels initiaux
   updateDashboard();
+
+  // Lancement de la récupération automatique des données (toutes les 5 secondes)
   refreshData();
-  setInterval(refreshData, 5000); // Rafraîchissement automatique
+  setInterval(refreshData, 5000);
 });
