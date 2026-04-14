@@ -121,13 +121,21 @@
   }
 
   /* ── MAIN ──────────────────────────────────────── */
-  .main {
+.main {
+    /* On garde ta marge intacte */
     margin-left: var(--sidebar-w);
+    
+    /* On force la largeur : 100% de l'écran MOINS la largeur de la sidebar */
+    width: calc(100vw - var(--sidebar-w));
+    
+    /* Pour éviter les mauvaises surprises avec le padding */
+    box-sizing: border-box; 
+    
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-  }
+}
 
   .topbar {
     padding: 20px 32px;
