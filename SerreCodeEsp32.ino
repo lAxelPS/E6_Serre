@@ -1,164 +1,172 @@
+#include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <Wire.h>
 #include <BH1750.h>
 #include "DHT.h"
-#include <ESP8266WiFi.h>
+
+/* -------- CONFIG WIFI AP -------- */
+const char* ap_ssid     = "ESP8266_WIFI";
+const char* ap_password = "12345678";
 
 /* -------- MQTT -------- */
-// Note : L'ESP8266 aura l'IP 192.168.4.1. 
-// Assure-toi que ton broker (ex: Raspberry Pi) est bien en 192.168.4.2
-const char* mqtt_server = "192.168.4.2";
-
-/* -------- WiFi émis par l’ESP8266 -------- */
-const char* ap_ssid = "ESP8266_WIFI";
-const char* ap_password = "12345678";
+const char* mqtt_server = "192.168.4.2"; // IP broker
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-unsigned long lastMsg = 0;
+/* -------- BROCHES -------- */
+#define DHTPIN           14
+#define DHTTYPE          DHT22
+#define SOIL_PIN         A0
+#define PIN_LED_CULTURE  12
+#define PIN_VENTILO      13
+#define PIN_POMPE        16
 
-// LED intégrée (GPIO2 / D4 sur NodeMCU)
-#define ledPin 2 
+/* -------- TOPICS -------- */
+#define TOPIC_LED       "esp8266/cmd/led"
+#define TOPIC_VENTILO   "esp8266/cmd/ventilo"
+#define TOPIC_POMPE     "esp8266/cmd/pompe"
+#define TOPIC_PUB       "esp8266/sensor1"
 
-/* -------- CAPTEURS -------- */
-#define DHTPIN 14 // GPIO 14 = Broche D5
-#define DHTTYPE DHT22
+/* -------- OBJETS -------- */
 DHT dht(DHTPIN, DHTTYPE);
-
 BH1750 lightMeter;
 
-#define SOIL_PIN A0
+unsigned long lastMsg = 0;
 
-/* -------- LED -------- */
-void blink_led(unsigned int times, unsigned int duration) {
-  for (unsigned int i = 0; i < times; i++) {
-    digitalWrite(ledPin, LOW); // LOW = ON sur la plupart des ESP8266
-    delay(duration);
-    digitalWrite(ledPin, HIGH);
-    delay(200);
+/* -------- ACTIONNEURS -------- */
+void setActionneur(uint8_t pin, String cmd, const char* nom) {
+  cmd.trim();
+
+  if (cmd == "ON") {
+    digitalWrite(pin, LOW);
+    Serial.print("✅ "); Serial.print(nom); Serial.println(" ON");
+  } 
+  else if (cmd == "OFF") {
+    digitalWrite(pin, HIGH);
+    Serial.print("⛔ "); Serial.print(nom); Serial.println(" OFF");
+  } 
+  else {
+    Serial.print("❌ Commande inconnue: ");
+    Serial.println(cmd);
   }
 }
 
-/* -------- CONFIGURATION WIFI AP -------- */
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Configuration du point d'accès : ");
-  Serial.println(ap_ssid);
+/* -------- CALLBACK MQTT -------- */
+void callback(char* topic, byte* payload, unsigned int length) {
+  String msg;
 
-  // On configure l'ESP en mode Point d'Accès uniquement
-  WiFi.mode(WIFI_AP);
-  bool result = WiFi.softAP(ap_ssid, ap_password);
-
-  if(result == true) {
-    Serial.println("Point d'accès prêt !");
-    Serial.print("Adresse IP de l'ESP (Passerelle) : ");
-    Serial.println(WiFi.softAPIP());
-  } else {
-    Serial.println("Échec du démarrage du point d'accès.");
-  }
-}
-
-/* -------- MQTT callback -------- */
-void callback(char* topic, byte* message, unsigned int length) {
-  String messageTemp;
   for (unsigned int i = 0; i < length; i++) {
-    messageTemp += (char)message[i];
+    msg += (char)payload[i];
   }
-  
-  if (String(topic) == "rpi/broadcast") {
-    if (messageTemp == "10") {
-      blink_led(1, 1250);
-    }
+
+  Serial.print("📩 Reçu [");
+  Serial.print(topic);
+  Serial.print("] : ");
+  Serial.println(msg);
+
+  if (String(topic) == TOPIC_LED) {
+    setActionneur(PIN_LED_CULTURE, msg, "LED");
+  } 
+  else if (String(topic) == TOPIC_VENTILO) {
+    setActionneur(PIN_VENTILO, msg, "VENTILO");
+  } 
+  else if (String(topic) == TOPIC_POMPE) {
+    setActionneur(PIN_POMPE, msg, "POMPE");
   }
 }
 
-/* -------- Connexion MQTT -------- */
-void connect_mqttServer() {
+/* -------- WIFI AP -------- */
+void setup_wifi() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ap_ssid, ap_password);
+
+  Serial.println("AP lancé");
+  Serial.print("IP ESP8266: ");
+  Serial.println(WiFi.softAPIP());
+}
+
+/* -------- MQTT RECONNECT -------- */
+void reconnect() {
   while (!client.connected()) {
-    Serial.print("Tentative de connexion MQTT...");
-    // Identifiant unique pour le client MQTT
-    if (client.connect("ESP8266_client1")) {
-      Serial.println("Connecté au broker !");
-      client.subscribe("rpi/broadcast");
-    } else {
+    Serial.print("Connexion MQTT...");
+
+    if (client.connect("ESP8266_client")) {
+      Serial.println("OK");
+
+      client.subscribe(TOPIC_LED);
+      client.subscribe(TOPIC_VENTILO);
+      client.subscribe(TOPIC_POMPE);
+
+      Serial.println("Abonné aux topics");
+    } 
+    else {
       Serial.print("Erreur, rc=");
       Serial.print(client.state());
-      Serial.println(" Nouvelle tentative dans 2 secondes...");
-      delay(2000);
+      Serial.println(" → retry 5s");
+      delay(5000);
     }
   }
 }
 
-/* -------- Setup -------- */
+/* -------- SETUP -------- */
 void setup() {
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, HIGH); // Éteindre la LED au départ
-  
   Serial.begin(115200);
 
-  // 1. Démarrage du WiFi AP
+  pinMode(PIN_LED_CULTURE, OUTPUT);
+  pinMode(PIN_VENTILO, OUTPUT);
+  pinMode(PIN_POMPE, OUTPUT);
+
+  digitalWrite(PIN_LED_CULTURE, HIGH);
+  digitalWrite(PIN_VENTILO, HIGH);
+  digitalWrite(PIN_POMPE, HIGH);
+
   setup_wifi();
 
-  // 2. Configuration MQTT
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
-  // 3. Initialisation Capteurs
   dht.begin();
-  Wire.begin(); // D2 (SDA) et D1 (SCL) par défaut
-  
-  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
-    Serial.println("BH1750 détecté !");
-  } else {
-    Serial.println("Erreur BH1750 (vérifiez le câblage I2C)");
-  }
+  Wire.begin();
+  lightMeter.begin();
+
+  Serial.println("Setup terminé");
 }
 
-/* -------- Loop -------- */
+/* -------- LOOP -------- */
 void loop() {
-  // Maintenir la connexion MQTT
+
   if (!client.connected()) {
-    connect_mqttServer();
+    reconnect();
   }
+
   client.loop();
 
   unsigned long now = millis();
-  // Envoi des données toutes les 4 secondes
+
   if (now - lastMsg > 4000) {
     lastMsg = now;
 
-    float humidity = dht.readHumidity();
-    float temperature = dht.readTemperature();
+    float h = dht.readHumidity();
+    float t = dht.readTemperature();
     float lux = lightMeter.readLightLevel();
+    int soil = analogRead(SOIL_PIN);
 
-    // Lecture humidité du sol (ADC 10 bits : 0 à 1023)
-    int soilRaw = analogRead(SOIL_PIN);
-    // On inverse souvent car 1023 = sec, 0 = très humide
-    float soilPercent = map(soilRaw, 1023, 0, 0, 100); 
-    soilPercent = constrain(soilPercent, 0, 100);
-
-    // Vérification si lectures valides
-    if (isnan(humidity) || isnan(temperature)) {
-      Serial.println("Erreur de lecture DHT22 !");
+    if (isnan(h) || isnan(t)) {
+      Serial.println("Erreur DHT");
       return;
     }
 
-    // Construction du JSON
     String payload = "{";
-    payload += "\"temperature\":" + String(temperature) + ",";
-    payload += "\"humidity\":" + String(humidity) + ",";
+    payload += "\"temperature\":" + String(t) + ",";
+    payload += "\"humidity\":" + String(h) + ",";
     payload += "\"lux\":" + String(lux) + ",";
-    payload += "\"soil\":" + String(soilPercent);
+    payload += "\"soil\":" + String(soil);
     payload += "}";
 
-    // Publication
-    if (client.publish("esp8266/sensor1", payload.c_str())) {
-      Serial.print("Message envoyé : ");
-      Serial.println(payload);
-    } else {
-      Serial.println("Échec de l'envoi MQTT");
+    if (client.connected()) {
+      client.publish(TOPIC_PUB, payload.c_str());
+      Serial.println("📤 Envoyé: " + payload);
     }
   }
 }
