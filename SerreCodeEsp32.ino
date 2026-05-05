@@ -40,14 +40,14 @@ void setActionneur(uint8_t pin, String cmd, const char* nom) {
 
   if (cmd == "ON") {
     digitalWrite(pin, LOW);
-    Serial.print("✅ "); Serial.print(nom); Serial.println(" ON");
+    Serial.print(nom); Serial.println(" ON");
   } 
   else if (cmd == "OFF") {
     digitalWrite(pin, HIGH);
-    Serial.print("⛔ "); Serial.print(nom); Serial.println(" OFF");
+    Serial.print(nom); Serial.println(" OFF");
   } 
   else {
-    Serial.print("❌ Commande inconnue: ");
+    Serial.print("Commande inconnue: ");
     Serial.println(cmd);
   }
 }
@@ -60,7 +60,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     msg += (char)payload[i];
   }
 
-  Serial.print("📩 Reçu [");
+  Serial.print("Reçu [");
   Serial.print(topic);
   Serial.print("] : ");
   Serial.println(msg);
@@ -166,7 +166,7 @@ void loop() {
 
     if (client.connected()) {
       client.publish(TOPIC_PUB, payload.c_str());
-      Serial.println("📤 Envoyé: " + payload);
+      Serial.println("Envoyé: " + payload);
     }
   }
 }
