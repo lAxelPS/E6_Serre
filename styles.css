@@ -470,6 +470,20 @@
     background-color: #555; /* À adapter selon ton thème */
 }
 
+.mqtt-status {
+  position: fixed;
+  bottom: 12px;
+  left: calc(var(--sidebar-w) + 12px); /* évite la sidebar */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  z-index: 200;
+}
+
   /* ── SCROLLBAR ─────────────────────────────────── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: var(--bg); }

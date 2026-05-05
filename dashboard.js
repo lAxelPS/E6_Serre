@@ -8,6 +8,47 @@ const state = {
   alertes: [],
 };
 
+document.addEventListener("DOMContentLoaded", () => {
+
+    const brokerUrl = 'ws://192.168.4.2:9001'; 
+    const mqttDot = document.getElementById('mqtt-dot');
+
+    function setMqttStatus(isOn) {
+        if (!mqttDot) return;
+        mqttDot.classList.toggle('off', !isOn);
+    }
+
+    if (typeof mqtt === "undefined") {
+        console.error("ERR : mqtt.min.js NON charge");
+        setMqttStatus(false);
+        return;
+    }
+
+    try {
+        const client = mqtt.connect(brokerUrl);
+
+        client.on('connect', () => {
+            console.log("OK : MQTT connecte");
+            setMqttStatus(true);
+        });
+
+        client.on('error', (err) => {
+            console.error("ERR : MQTT erreur", err);
+            setMqttStatus(false);
+        });
+
+        client.on('offline', () => {
+            console.warn("WARN : MQTT offline");
+            setMqttStatus(false);
+        });
+
+    } catch (e) {
+        console.error("ERR : Impossible d'initialiser MQTT", e);
+        setMqttStatus(false);
+    }
+
+});
+
 // Vérifie les seuils et retourne le statut
 function getStatut(type, val) {
   const s = state.sensors[type];
