@@ -150,7 +150,9 @@ void loop() {
     float h = dht.readHumidity();
     float t = dht.readTemperature();
     float lux = lightMeter.readLightLevel();
-    int soil = analogRead(SOIL_PIN);
+    int soilRaw = analogRead(SOIL_PIN);
+    int soil = map(soilRaw, 1023, 0, 0, 100);
+    soil = constrain(soil, 0, 100);
 
     if (isnan(h) || isnan(t)) {
       Serial.println("Erreur DHT");
